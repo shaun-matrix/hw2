@@ -365,7 +365,10 @@ class Tensor(Value):
 
     def __pow__(self, other):
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        if isinstance(other, Tensor):
+            raise NotImplementedError()
+        else:
+            return needle.ops.PowerScalar(other)(self)
         ### END YOUR SOLUTION
 
     def __sub__(self, other):
@@ -421,9 +424,27 @@ def compute_gradient_of_variables(output_tensor, out_grad):
 
     # Traverse graph in reverse topological order given the output_node that we are taking gradient wrt.
     reverse_topo_order = list(reversed(find_topo_sort([output_tensor])))
-
     ### BEGIN YOUR SOLUTION
-    raise NotImplementedError()
+    for node in reverse_topo_order:
+        output_grads_list = node_to_output_grads_list[node]
+        output_grads_num = len(output_grads_list)
+
+        # sum up partial adjoints
+        adjoints = output_grads_list[0]
+        if output_grads_num > 1:
+            for i in range(1, output_grads_num):
+                adjoints = needle.add(adjoints, output_grads_list[i])
+        node.grad = adjoints
+
+        # propagate partial adjoint to its input
+        if not node.is_leaf():
+            partial_adjoint_wrt_inputs = [x for x in node.op.gradient_as_tuple(adjoints, node)]
+            for input_idx, input_node in enumerate(node.inputs):
+                # check input_node if already stored in node_to_output_grads_list
+                if input_node not in node_to_output_grads_list:
+                    node_to_output_grads_list.update({input_node: []})
+                node_to_output_grads_list[input_node].append(partial_adjoint_wrt_inputs[input_idx])
+            
     ### END YOUR SOLUTION
 
 
@@ -436,14 +457,24 @@ def find_topo_sort(node_list: List[Value]) -> List[Value]:
     sort.
     """
     ### BEGIN YOUR SOLUTION
-    raise NotImplementedError()
+    visited = set()
+    topo_order = []
+    for node in node_list:
+        topo_sort_dfs(node, visited, topo_order)
+    return topo_order
     ### END YOUR SOLUTION
 
 
 def topo_sort_dfs(node, visited, topo_order):
     """Post-order DFS"""
     ### BEGIN YOUR SOLUTION
-    raise NotImplementedError()
+    node_id = id(node)
+    if node_id in visited: 
+        return
+    visited.add(node_id)
+    for input_node in node.inputs:
+        topo_sort_dfs(input_node, visited, topo_order)
+    topo_order.append(node)
     ### END YOUR SOLUTION
 
 
